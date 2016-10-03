@@ -6,8 +6,9 @@ library(ggrepel)
 library(raster)
 library(RColorBrewer)
 
+Sys.setlocale(category = "LC_ALL", locale = "zh_CN.UTF-8")
 #setwd("~/Documents/CAL/Real_Life/LogiCal/Kat27")
-Kat_locs <-read.csv('Kat_locs3.csv', stringsAsFactors = F)
+Kat_locs <-read.csv('Kat.csv', stringsAsFactors = F, encoding = "UTF-8")
 Kat_locs$lon<-ifelse (Kat_locs$lon <0, Kat_locs$lon+360, Kat_locs$lon) #need to translate all longitudes to positive values because of mapping grid
 Kat_locs$Type <- as.factor(Kat_locs$Type)
 ui <- fluidPage(
@@ -34,9 +35,10 @@ server <- function(input, output, session) {
 	pal <- colorFactor(brewer.pal(6, 'Dark2'), domain=Kat_locs$Type)
 	values<-reactiveValues()
 	values$df <- Kat_locs
+	values$coordinates <- c(121.56, 25.03)
 	output$map <- renderLeaflet( {
 		leaflet(values$df) %>% addProviderTiles('Esri.NatGeoWorldMap') %>% 
-		setView(121.56, 25.03, zoom = 4) %>% addLegend("topleft", pal=pal, values = ~Type, title="Legend", opacity=2)#start off centered in Taipei with a far off zoom
+		setView(values$coordinates[1], values$coordinates[2], zoom = 4) %>% addLegend("topleft", pal=pal, values = ~Type, title="Legend", opacity=2)#start off centered in Taipei with a far off zoom
 				})
 		
 	observe({			
@@ -46,10 +48,11 @@ server <- function(input, output, session) {
 	observeEvent(input$Action,
 		if (!is.na(input$Location)){
 			new_loc <- geocode(input$Location)
-			new_lon <- new_loc$lon
+			new_lon <- ifelse(new_loc$lon <0, new_loc$lon + 360, new_loc$lon)
 			new_lat <- new_loc$lat
-			new_line <- data.frame(Location=input$Location, Type=input$Type, Detail=input$Detail, Time="", lon=ifelse(new_lon <0, new_lon + 360, new_lon), lat= new_lat, alt_lon = new_lon)
+			new_line <- data.frame(Location=input$Location, Type=input$Type, Detail=input$Detail, lon=new_lon, lat= new_lat, alt_lon = new_lon)
 			isolate(values$df <- rbind(values$df,  new_line))
+			isolate(values$coordinates <- c(new_lon, new_lat))
 			updateTextInput(session, "Location", value = "")
 			updateTextInput(session, "Detail", value = "")
 		}
